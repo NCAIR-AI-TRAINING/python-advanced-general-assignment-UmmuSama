@@ -33,25 +33,35 @@ def get_last_visitor():
             # fallback if timestamp missing (older main branch entries)
             return last_line, None
 
-def add_visitor(visitor_name):     #checks if last visitor is same as current one and raise customer error if duplicate
-    last_name, last_time = get_last_visitor()
+def add_visitor(name):     #checks if last visitor is same as current one and raise customer error if duplicate
+    visitors = []
 
-    # Check duplicate consecutive visitor FIRST
-    if last_name == visitor_name:
-        raise DuplicateVisitorError(f"{visitor_name} tried to visit twice in a row!")
+    #Read previous visitors
+    try:
+        with open("visitors.txt") as f:
+            for line in f:
+                if " | " in line:
+                    visitor_name, timestamp = line.strip().split(" | ")
+                    visitors.append((visitor_name, timestamp))
+    except FileNotFoundError:
+        pass
 
-    # Check 5-minute wait rule SECOND
-    if last_time:
-        now = datetime.now()
-        elapsed = now - last_time
-        if elapsed < timedelta(minutes=5):
-            remaining = timedelta(minutes=5) - elapsed
-            raise EarlyEntryError(f"{visitor_name} must wait {int(remaining.total_seconds())} more seconds before visiting again.")
+    #Check for duplicate visitor
+    for visitor_name, timestamp in visitors:
+        if visitor_name == name:
+            raise DuplicateVisitorError()
 
-    # Log visitor
-    with open(FILENAME, "a") as f:
-        f.write(f"{visitor_name}|{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    pass
+    #Check the wait time (needs at least 5 minutes)
+    if visitors:
+        last_name, last_timestamp = visitors[-1]
+        last_time = datetime.fromisoformat(last_timestamp)
+        if datetime.now() - last_time < timedelta(minutes=5):
+            raise Exception("Must wait 5 minutes before next visitor.")
+
+    #Add new visitor with ISO timestamp
+    timestamp = datetime.now().isoformat()
+    with open("visitors.txt", "a") as f:
+        f.write(f"{name} | {timestamp}\n")
 
 def main():
     ensure_file()
